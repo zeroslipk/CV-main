@@ -32,6 +32,21 @@ def preprocess_image(image_path):
 
     # Binarize the image using a threshold
     _, binary_img = cv.threshold(resized_img, 128, 255, cv.THRESH_BINARY_INV)
+     # Step 5: Detect potential obstructions (e.g., finger)
+     
+    # contours, _ = cv.findContours(binary_img, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    # mask = np.zeros_like(binary_img)
+    # obstruction_detected = False
+    # for contour in contours:
+    #     x, y, w, h = cv.boundingRect(contour)
+    #     if h > resized_img.shape[0] // 4:  # Assume obstructions are tall compared to the barcode
+    #         cv.drawContours(mask, [contour], -1, 255, -1)
+    #         obstruction_detected = True
+
+    # if obstruction_detected:
+    #     # Step 6: Remove the obstruction using inpainting
+    #     print("Obstruction detected. Applying inpainting...")
+    #     binary_img = cv.inpaint(binary_img, mask, inpaintRadius=3, flags=cv.INPAINT_TELEA)
     
 
     # Morphological Opening
