@@ -14,6 +14,8 @@ def display_image(img, title):
     plt.axis('off')
     plt.show()
 
+# 1 2 4 7 8 
+
 def preprocess_image(image_path):
     """
     Preprocess the image: apply noise reduction, resize, and binarize.
