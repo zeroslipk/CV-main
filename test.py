@@ -82,7 +82,7 @@ def reconstruct_barcode_lines(barcode_lines, mask):
     # Interpolate missing lines in the masked region
     for i in range(barcode_lines.shape[0]):
         if np.any(mask[i, :] > 0):  # If there's obstruction in this row
-            barcode_lines[i, :] = barcode_lines[i - 1, :]  # Copy from the previous line
+            barcode_lines[i, :] = barcode_lines[i - 1, :]  
 
     return barcode_lines
 
