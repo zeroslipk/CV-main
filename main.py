@@ -30,6 +30,7 @@ def preprocess_image(image_path):
 
     # Binarize the image using a threshold
     _, binary_img = cv.threshold(resized_img, 128, 255, cv.THRESH_BINARY_INV)
+    
 
     # Morphological Opening
     kernel_height = 13
