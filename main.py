@@ -79,25 +79,31 @@ def process_test_cases(image_folder):
     """
     Process all images in the given folder and display results.
     """
-    for file_name in os.listdir(image_folder):
-        if file_name.endswith(".jpg"):
-            print(f"Processing: {file_name}")
-            image_path = os.path.join(image_folder, file_name)
+    # Get all .jpg files and sort them by the numerical prefix
+    files = [file_name for file_name in os.listdir(image_folder) if file_name.endswith(".jpg")]
+    files.sort(key=lambda x: int(x.split(' ')[0]))  # Extract the numeric part and sort
 
-            # Preprocess the image
-            cleaned_img = preprocess_image(image_path)
+    for file_name in files:
+        print(f"Processing: {file_name}")
+        image_path = os.path.join(image_folder, file_name)
 
-            # Debugging: Display the preprocessed image
-            display_image(cleaned_img, "Preprocessed Image")
+        # Preprocess the image
+        cleaned_img = preprocess_image(image_path)
 
-            # Crop the barcode region
-            cropped_img = crop_barcode(cleaned_img)
+        # Debugging: Display the preprocessed image
+        display_image(cleaned_img, "Preprocessed Image")
 
-            # Display the images
-            display_image(cv.imread(image_path, cv.IMREAD_GRAYSCALE), "Original Image")
-            display_image(cropped_img, "Cropped Barcode")
+        # Crop the barcode region
+        cropped_img = crop_barcode(cleaned_img)
+
+        # Display the images
+        display_image(cv.imread(image_path, cv.IMREAD_GRAYSCALE), "Original Image")
+        display_image(cropped_img, "Cropped Barcode")
 
 if __name__ == "__main__":
     # Replace with the path to your test cases folder
-    image_folder = "C:\\Users\\A\\Downloads\\Test Cases-20241123"
+    image_folder = "/Users/mohamedwalid/Desktop/CV-main/Test Cases-20241123"
     process_test_cases(image_folder)
+
+# 1 2 4 7 8 
+# 3 5 6 9 10 11
