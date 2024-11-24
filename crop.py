@@ -2,8 +2,15 @@ import cv2 as cv
 import numpy as np
 
 def crop_barcode(img):
+    """
+    Crops the barcode region from the image using contours.
+    """
     # Find contours in the binary image
     contours, _ = cv.findContours(img, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+    if not contours:
+        print("No contours detected! Skipping this image.")
+        return img  # Return the original image if no contours are found
 
     # Find the horizontal limits of the barcode
     x_min = min([cv.boundingRect(contour)[0] for contour in contours])  # Leftmost x-coordinate
@@ -16,12 +23,5 @@ def crop_barcode(img):
     # Crop the image so that only the barcode is visible
     cropped_img = img[y:y + h, x_min:x_max]
 
-     # Draw the bounding rectangle of the largest contour in green
-    cv.rectangle(img, (x_min, y), (x_max, y + h), (0, 255, 0), 2)
-
-    # Draw all contours in red
-    contour_img = cv.cvtColor(img, cv.COLOR_GRAY2BGR)  # Convert to BGR for colored drawing
-    cv.drawContours(contour_img, contours, -1, (0, 0, 255), 2)  # Draw all contours in red
-
-    return cropped_img, contour_img
+    return cropped_img
 
