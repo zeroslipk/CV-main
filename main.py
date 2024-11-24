@@ -35,45 +35,42 @@ def display_image(img, title):
     plt.title(title)
     plt.axis('off')
     plt.show()
-
+# 1 2 4  8 5 6 10
+# 3 7 9 11
 def preprocess_image(image_path):
     """
-    Preprocess the image: apply noise reduction, resize, and binarize.
+    Optimized image preprocessing: balanced contrast adjustment, noise reduction,
+    and precise binarization for barcode detection.
     """
+    # Step 1: Read the image in grayscale
     img = cv.imread(image_path, cv.IMREAD_GRAYSCALE)
 
-    # Apply Median Filter vertically only
-    kernel = np.ones((7, 1), np.float32) / 5
-    median_blurred_img = cv.filter2D(img, -1, kernel)
+    # Step 2: Apply a slight blur to reduce noise
+    blurred_img = cv.GaussianBlur(img, (5, 5), 0)
 
-    # Resize the image to increase its dimensions
-    scale_factor = 4  # Adjust the scale factor as needed
-    resized_img = cv.resize(median_blurred_img, (median_blurred_img.shape[1] * scale_factor, median_blurred_img.shape[0] * scale_factor))
+    # Step 3: Normalize brightness and contrast
+    normalized_img = cv.normalize(blurred_img, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX)
 
-    # Binarize the image using a threshold
-    _, binary_img = cv.threshold(resized_img, 128, 255, cv.THRESH_BINARY_INV)
+    # Step 4: Adaptive Histogram Equalization (CLAHE) for contrast enhancement
+    clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced_img = clahe.apply(normalized_img)
 
-    # Morphological Opening
-    kernel_height = 13
-    kernel_width = 13
-    kernel = np.zeros((kernel_height, kernel_width), np.uint8)
-    kernel[:, kernel_width // 2] = 1
-    opened_img = cv.morphologyEx(binary_img, cv.MORPH_OPEN, kernel)
+    # Step 5: Adaptive Thresholding for binarization
+    # Use a smaller block size for finer details
+    binary_img = cv.adaptiveThreshold(
+        enhanced_img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 15, 8
+    )
 
-    # Morphological Closing
-    kernel_height = 21
-    kernel_width = 21
-    kernel = np.zeros((kernel_height, kernel_width), np.uint8)
-    kernel[:, kernel_width // 2] = 1
-    closed_img = cv.morphologyEx(opened_img, cv.MORPH_CLOSE, kernel)
+    # Step 6: Morphological Closing to connect barcode lines
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (3, 1))  # Small horizontal kernel
+    closed_img = cv.morphologyEx(binary_img, cv.MORPH_CLOSE, kernel)
 
-    # Further cleaning
-    kernel_height = 1
-    kernel_width = 5
-    kernel = np.ones((kernel_height, kernel_width), np.uint8)
-    cleaned_img = cv.morphologyEx(closed_img, cv.MORPH_CLOSE, kernel)
+    # Step 7: Further cleaning (optional)
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, 3))  # Small vertical kernel
+    cleaned_img = cv.morphologyEx(closed_img, cv.MORPH_OPEN, kernel)
 
     return cleaned_img
+
 
 def process_test_cases(image_folder):
     """
@@ -105,5 +102,3 @@ if __name__ == "__main__":
     image_folder = "/Users/mohamedwalid/Desktop/CV-main/Test Cases-20241123"
     process_test_cases(image_folder)
 
-# 1 2 4 7 8 
-# 3 5 6 9 10 11
