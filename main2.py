@@ -25,18 +25,28 @@ def crop_barcode(img):
     Crops the barcode region from the image using contours.
     Also removes any numbers below the barcode.
     """
-    contours, _ = cv.findContours(img, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    # Convert the image to grayscale if not already
+    if len(img.shape) == 3:
+        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+    # Apply thresholding to convert image to binary for better contour detection
+    _, thresholded = cv.threshold(img, 128, 255, cv.THRESH_BINARY_INV)
+
+    # Find contours in the binary image
+    contours, _ = cv.findContours(thresholded, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
     if not contours:
         print("No contours detected! Skipping this image.")
-        return img
+        return img  # Return the original image if no contours are found
 
-    # Find the bounding box of the largest contour
-    x_min = min([cv.boundingRect(contour)[0] for contour in contours])
-    x_max = max([cv.boundingRect(contour)[0] + cv.boundingRect(contour)[2] for contour in contours])
+    # Find the horizontal limits of the barcode
+    x_min = min([cv.boundingRect(contour)[0] for contour in contours])  # Leftmost x-coordinate
+    x_max = max([cv.boundingRect(contour)[0] + cv.boundingRect(contour)[2] for contour in contours])  # Rightmost x-coordinate
+
+    # Assume the largest contour corresponds to the vertical extent of the barcode
     largest_contour = max(contours, key=cv.contourArea)
-    _, y, _, h = cv.boundingRect(largest_contour)
+    _, y, _, h = cv.boundingRect(largest_contour)  # Get the y and height (vertical cropping)
 
-    # Crop the image based on the bounding box of the largest contour
+    # Crop the image so that only the barcode is visible
     cropped_img = img[y:y + h, x_min:x_max]
 
     # Remove numbers from the bottom of the cropped barcode region
@@ -69,9 +79,6 @@ def straighten_and_clean_9th_photo(img):
 
     # Remove numbers and noise below the barcode
     img = remove_numbers_from_bottom(img)
-
-    # Fix the top-left corner if necessary (cleaning up residual noise)
-    img[:50, :50] = 255  # Fill the top-left corner with white (clean background)
 
     # Resize the cropped barcode if needed to ensure it fits
     target_size = (512, 512)  # Desired canvas size
