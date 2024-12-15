@@ -6,18 +6,10 @@ def remove_numbers_from_bottom(img, margin=20):
     """
     Removes any numbers or unwanted text at the bottom of the barcode by setting that area to white.
     """
-    # Take the bottom 'margin' rows and identify the darker pixels which are likely numbers
     bottom_part = img[-margin:, :]
-    
-    # Threshold the bottom part to identify non-white regions (likely numbers)
     _, thresholded_bottom = cv.threshold(bottom_part, 240, 255, cv.THRESH_BINARY_INV)
-    
-    # Now set those areas to white (255)
     img[-margin:, :] = cv.bitwise_or(img[-margin:, :], thresholded_bottom)
-    
-    # Ensure the entire bottom part is white after thresholding
     img[-margin:, :] = 255  # Clean the entire bottom margin with white pixels
-    
     return img
 
 def crop_barcode(img):
@@ -25,44 +17,30 @@ def crop_barcode(img):
     Crops the barcode region from the image using contours.
     Also removes any numbers below the barcode.
     """
-    # Convert the image to grayscale if not already
     if len(img.shape) == 3:
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-    # Apply thresholding to convert image to binary for better contour detection
     _, thresholded = cv.threshold(img, 128, 255, cv.THRESH_BINARY_INV)
-
-    # Find contours in the binary image
     contours, _ = cv.findContours(thresholded, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
     if not contours:
         print("No contours detected! Skipping this image.")
         return img  # Return the original image if no contours are found
 
-    # Find the horizontal limits of the barcode
-    x_min = min([cv.boundingRect(contour)[0] for contour in contours])  # Leftmost x-coordinate
-    x_max = max([cv.boundingRect(contour)[0] + cv.boundingRect(contour)[2] for contour in contours])  # Rightmost x-coordinate
-
-    # Assume the largest contour corresponds to the vertical extent of the barcode
+    x_min = min([cv.boundingRect(contour)[0] for contour in contours])
+    x_max = max([cv.boundingRect(contour)[0] + cv.boundingRect(contour)[2] for contour in contours])
     largest_contour = max(contours, key=cv.contourArea)
-    _, y, _, h = cv.boundingRect(largest_contour)  # Get the y and height (vertical cropping)
+    _, y, _, h = cv.boundingRect(largest_contour)
 
-    # Crop the image so that only the barcode is visible
     cropped_img = img[y:y + h, x_min:x_max]
-
-    # Remove numbers from the bottom of the cropped barcode region
     cropped_img = remove_numbers_from_bottom(cropped_img)
 
     return cropped_img
 
 def straighten_and_clean_9th_photo(img):
     """
-    Straightens the barcode, removes numbers below the barcode,
-    and centers the barcode on a white canvas.
+    Straightens the barcode, removes numbers below the barcode, and centers the barcode on a white canvas.
     """
-    # Detect edges using Canny edge detector
     edges = cv.Canny(img, 50, 150, apertureSize=3)
-
-    # Detect lines using Hough Line Transform
     lines = cv.HoughLines(edges, 1, np.pi / 180, 100)
     if lines is not None:
         angles = []
@@ -71,17 +49,13 @@ def straighten_and_clean_9th_photo(img):
             angles.append(angle)
         average_angle = np.mean(angles)
 
-        # Rotate the image to straighten it
         (h, w) = img.shape[:2]
         center = (w // 2, h // 2)
         rotation_matrix = cv.getRotationMatrix2D(center, average_angle, 1.0)
         img = cv.warpAffine(img, rotation_matrix, (w, h), flags=cv.INTER_CUBIC, borderMode=cv.BORDER_REPLICATE)
 
-    # Remove numbers and noise below the barcode
     img = remove_numbers_from_bottom(img)
-
-    # Resize the cropped barcode if needed to ensure it fits
-    target_size = (512, 512)  # Desired canvas size
+    target_size = (512, 512)
     img = center_barcode(img, target_size=target_size)
 
     return img
@@ -94,7 +68,6 @@ def center_barcode(img, target_size=(512, 512)):
     h, w = img.shape[:2]
     target_h, target_w = target_size
 
-    # Resize the image if it exceeds the target dimensions
     if h > target_h or w > target_w:
         scaling_factor = min(target_w / w, target_h / h)  # Scale to fit within target size
         new_w = int(w * scaling_factor)
@@ -102,25 +75,63 @@ def center_barcode(img, target_size=(512, 512)):
         img = cv.resize(img, (new_w, new_h), interpolation=cv.INTER_AREA)
         h, w = img.shape[:2]
 
-    # Create a blank white image of the target size
     centered_img = np.ones((target_h, target_w), dtype=np.uint8) * 255
-
-    # Compute the position to center the barcode
     x_offset = (target_w - w) // 2
     y_offset = (target_h - h) // 2
-
-    # Place the barcode in the center
     centered_img[y_offset:y_offset + h, x_offset:x_offset + w] = img
     return centered_img
 
-def preprocess_image(image_path, special_image=False, straighten_and_clean=False):
+def remove_hand(image_path):
     """
-    Unified preprocessing function for general photos,
-    with special handling for the 7th and 9th photos.
+    Removes the hand from the image using skin color segmentation and fills the removed area with the barcode.
+    """
+    img = cv.imread(image_path)
+    if img is None:
+        print(f"Error: Unable to load image at path {image_path}")
+        return None
+
+    # Convert image to HSV color space
+    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+
+    # Define lower and upper bounds for skin color (HSV range for skin tones)
+    lower_skin = np.array([0, 20, 70], dtype=np.uint8)
+    upper_skin = np.array([20, 255, 255], dtype=np.uint8)
+
+    # Create a mask for skin regions
+    skin_mask = cv.inRange(hsv, lower_skin, upper_skin)
+
+    # Invert the skin mask to focus on the background (the hand will be removed)
+    _, skin_mask = cv.threshold(skin_mask, 127, 255, cv.THRESH_BINARY_INV)
+
+    # Apply the mask to the original image to remove the hand
+    hand_removed = cv.bitwise_and(img, img, mask=skin_mask)
+
+    # Convert the image with the removed hand to grayscale
+    hand_removed_gray = cv.cvtColor(hand_removed, cv.COLOR_BGR2GRAY)
+
+    # Apply vertical closing to fill the gaps where the hand was
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (1, 30))  # Vertical kernel for closing
+    img_no_hand = cv.morphologyEx(hand_removed_gray, cv.MORPH_CLOSE, kernel)
+
+    # Optionally, apply dilation and erosion to improve the result
+    kernel_dilate = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))  # Dilation to smoothen the result
+    img_no_hand = cv.dilate(img_no_hand, kernel_dilate, iterations=1)
+
+    kernel_erode = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))  # Erosion to remove noise
+    img_no_hand = cv.erode(img_no_hand, kernel_erode, iterations=1)
+
+    return img_no_hand
+
+def preprocess_image(image_path, special_image=False, straighten_and_clean=False, remove_hand_image=False):
+    """
+    Unified preprocessing function for general photos, with special handling for the 7th and 9th photos,
+    and hand removal for specific images.
     """
     img = cv.imread(image_path, cv.IMREAD_GRAYSCALE)
 
-    if straighten_and_clean:  # Special handling for the 9th photo
+    if remove_hand_image:  # Special handling for the 3rd photo to remove the hand
+        img = remove_hand(image_path)
+    elif straighten_and_clean:  # Special handling for the 9th photo
         img = straighten_and_clean_9th_photo(img)
     elif special_image:  # Special preprocessing for the 7th photo
         kernel = np.ones((7, 1), np.float32) / 5
@@ -128,10 +139,8 @@ def preprocess_image(image_path, special_image=False, straighten_and_clean=False
         scale_factor = 4
         img = cv.resize(img, (img.shape[1] * scale_factor, img.shape[0] * scale_factor))
         
-        # Apply a standard threshold to preserve the original black and white structure
         _, img = cv.threshold(img, 128, 255, cv.THRESH_BINARY)
         
-        # Perform morphological operations to clean up the image (bars should stay intact)
         kernel = np.zeros((13, 13), np.uint8)
         kernel[:, kernel.shape[1] // 2] = 1
         img = cv.morphologyEx(img, cv.MORPH_OPEN, kernel)
@@ -155,10 +164,10 @@ def preprocess_image(image_path, special_image=False, straighten_and_clean=False
 
     return img
 
-def process_test_cases(image_folder, special_image_index, straighten_image_index):
+def process_test_cases(image_folder, special_image_index, straighten_image_index, remove_hand_index):
     """
     Process all images using unified preprocessing. Handles special cases for
-    7th and 9th photos. Saves the preprocessed and cropped results.
+    7th, 9th photos and removes hand from 3rd photo. Saves the preprocessed and cropped results.
     """
     files = [file_name for file_name in os.listdir(image_folder) if file_name.endswith(".jpg")]
     files.sort(key=lambda x: int(x.split(' ')[0]))  # Sort by numerical prefix
@@ -170,9 +179,10 @@ def process_test_cases(image_folder, special_image_index, straighten_image_index
         image_path = os.path.join(image_folder, file_name)
         straighten_and_clean = (i + 1 == straighten_image_index)
         special_image = (i + 1 == special_image_index)
+        remove_hand_image = (i + 1 == remove_hand_index)
 
         # Preprocess the image
-        cleaned_img = preprocess_image(image_path, special_image=special_image, straighten_and_clean=straighten_and_clean)
+        cleaned_img = preprocess_image(image_path, special_image=special_image, straighten_and_clean=straighten_and_clean, remove_hand_image=remove_hand_image)
 
         # Save the processed image
         preprocessed_path = os.path.join(output_folder, f"Preprocessed_{file_name}")
@@ -187,9 +197,9 @@ def process_test_cases(image_folder, special_image_index, straighten_image_index
         cv.imwrite(cropped_path, cropped_img)
         print(f"Saved Cropped Barcode: {cropped_path}")
 
-
 if __name__ == "__main__":
     image_folder = "C://Users//HD//Desktop//CV//CV-main//Test Cases-20241123"
     special_image_index = 7
     straighten_image_index = 9
-    process_test_cases(image_folder, special_image_index, straighten_image_index)
+    remove_hand_index = 3  # Remove hand from the 3rd photo
+    process_test_cases(image_folder, special_image_index, straighten_image_index, remove_hand_index)
