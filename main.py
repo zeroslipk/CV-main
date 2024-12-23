@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-from crop import crop_barcode
+from crop import crop_barcode   # Custom function to crop barcode regions
 
 def display_image(img, title):
     """
