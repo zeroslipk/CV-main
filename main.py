@@ -3,11 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-from crop import crop_barcode
+from crop import crop_barcode   # Custom function to crop barcode regions
 
 def display_image(img, title):
     """
     Displays an image using Matplotlib.
+    Useful for debugging or visualizing intermediate steps.
     """
     plt.imshow(img, cmap='gray')
     plt.title(title)
@@ -97,4 +98,5 @@ if __name__ == "__main__":
     # Replace with the path to your test cases folder
     image_folder = "C:\\Users\\A\\Desktop\\CV-main\\Test Cases-20241123"
 
+    # Process and display test cases
     process_test_cases(image_folder)
