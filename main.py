@@ -98,4 +98,5 @@ if __name__ == "__main__":
     # Replace with the path to your test cases folder
     image_folder = "C:\\Users\\A\\Desktop\\CV-main\\Test Cases-20241123"
 
+    # Process and display test cases
     process_test_cases(image_folder)
