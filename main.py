@@ -8,6 +8,7 @@ from crop import crop_barcode   # Custom function to crop barcode regions
 def display_image(img, title):
     """
     Displays an image using Matplotlib.
+    Useful for debugging or visualizing intermediate steps.
     """
     plt.imshow(img, cmap='gray')
     plt.title(title)
